@@ -15,12 +15,13 @@ def create_tables():
     db.create_all()
 
 #Listing endpoints:
-api.add_resource(Listing, "/listing/<int:isbn>")
-api.add_resource(allListings, "/listings")
+api.add_resource(Listing, "/listing/<int:isbn>") # must be listing_id to support POST and DELETE
+api.add_resource(allListings, "/listings/<string:filtr>")
 
 #Book endpoints:
 api.add_resource(Book, "/book/<int:isbn>")
-api.add_resource(BookList, "/booklist")
+api.add_resource(BookList, "/booklist/<string:search>")
+
 
 #user endpoints:
 api.add_resource(User, "/user/<string:google_tok>")

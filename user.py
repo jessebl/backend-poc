@@ -97,7 +97,7 @@ class User(Resource):
 		return {"message": "User created successfully."}, 201
 
 	def delete(self, google_tok): # delete User
-		user = UserModel.find_by_user_id(user_id)
+		user = UserModel.find_by_google_tok(google_tok)
 		if user:
 			user.delete_from_db()
 			return {"message": "User deleted"}

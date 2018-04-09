@@ -1,4 +1,4 @@
-from sqlalchemy import Table, Column, Integer, ForeignKey
+from sqlalchemy import Table, Column, Integer, ForeignKey, desc, asc
 from sqlalchemy.orm import relationship
 from flask_restful import Resource, reqparse
 
@@ -37,8 +37,11 @@ class ListingModel(db.Model):
 
     @classmethod
     def find_by_listing_id(cls, listing_id):
-        listings = ListingModel.query.filter_by(name=listing_id).first()
+        listing = ListingModel.query.filter_by(listing_id=listing_id).first()
         #For next time... How to search ONLY listing_id column???
+        if listing:
+            return listing
+        return None
 
 
     def save_to_db(self):
@@ -60,27 +63,28 @@ class Listing(Resource):
     )
     parser.add_argument("price", #requests must be in format { "price": float}
         type=float,
-        required=True,
+        required=False,
         help="FORMAT ERROR: This request must have be string : float where string == price "
     )
     parser.add_argument("condition",
         type=str,
-        required=True,
+        required=False,
         help="FORMAT ERROR: This request must have be string : string "
     )
-    parser.add_argument("isbn",
+    """parser.add_argument("isbn",
         type=int,
         required=True,
         help="FORMAT ERROR: This request must have be string : integer where string == price "
     )
+    """
     parser.add_argument("google_tok",
         type=str,
-        required=True,
+        required=False,
         help="FORMAT ERROR: This request must have be string : integer where string == price "
     )
     parser.add_argument("status",
         type=str,
-        required=True,
+        required=False,
         help="FORMAT ERROR: This request must have be string : string where string == price "
     )
 
@@ -104,12 +108,13 @@ class Listing(Resource):
 
         return item.json(), 201 #post was successful
 
-    def delete(self, listing_id):
-        item = ListingModel.find_by_listing_id(listing_id)
+    def delete(self, isbn):
+        data = Listing.parser.parse_args()
+        item = ListingModel.find_by_listing_id(data["listing_id"])
         if item:
             item.delete_from_db()
             return {"message": "Item deleted"}
-        return {"message": listing_id + " does not exist"}
+        return {"message": "Listing with ID " + str(data["listing_id"]) + " does not exist"}
 
     def put(self, listing_id, price, condition, isbn, google_tok, status): # aka "mostly just use to change status"
         data = Listing.parser.parse_args() # only add valid JSON requests into data
@@ -130,5 +135,32 @@ class Listing(Resource):
 
 
 class allListings(Resource):
-    def get(self):
-        return{"listings": [item.json() for item in ListingModel.query.all()]}
+    #def get(self):
+    #    return{"listings": [item.json() for item in ListingModel.query.all()]}
+    def get(self, filtr):
+        firstString = []
+        secondString = []
+        first = True
+        for i in range(0, len(filtr)):
+            if filtr[i] == ":":
+                first = False
+                continue
+            if first:
+                firstString.append(filtr[i])
+            elif not first:
+                secondString.append(filtr[i])
+        isbn = ''.join(firstString)
+        isbn = int(isbn)
+        print(isbn)
+        if len(secondString) > 0:
+            s = ''.join(secondString)
+            print(s)
+            if s == "price": #For next time: figure out ordering by price and condition!!!
+                return {"listings": [listing.json() for listing in ListingModel.query.filter_by(isbn=isbn).order_by(db.desc(listings.price)).all()]}
+            elif s == "condition":
+                return {"listings": [listing.json() for listing in ListingModel.query.filter_by(isbn=isbn).order_by(db.asc(listings.condition)).all()]}
+            else:
+                return{"message": "error, can only search by title or author: /booklist/author:Bill_Shakespeare"}
+        elif search != "all":
+            return {"message": "Please enter booklist/all or booklist/author:xxx or booklist/title:xxx"}
+        return {"books": [book.json() for book in BookModel.query.all()]}

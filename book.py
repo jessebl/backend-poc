@@ -53,7 +53,7 @@ class BookModel(db.Model):
 	def delete_from_db(self):
 		db.session.delete(self)
 		db.session.commit()
-		return json()
+		return self.json()
 
 	# How the book class will be printed
 	def __repr__(self):
@@ -98,7 +98,7 @@ class Book(Resource):
 		if book:
 			book.delete_from_db()
 			return {"message": "Book deleted"}
-		return {"message": "Book with isbn (" + isbn + ") does not exist."}
+		return {"message": "Book with isbn (" + str(isbn) + ") does not exist."}
 
 	"""def put(self, isbn):
 		data = Book.parser.parse_args()
@@ -112,5 +112,34 @@ class Book(Resource):
 			book.author = data['author']"""
 
 class BookList(Resource):
-	def get(self):
+	#def get(self):
+		#return {"books": [book.json() for book in BookModel.query.all()]}
+	def get(self, search):
+		firstString = []
+		secondString = []
+		first = True
+		for i in range(0, len(search)):
+			if search[i] == ":":
+				first = False
+				continue
+			if first:
+				firstString.append(search[i])
+			elif not first:
+				if search[i] == "_":
+					secondString.append(" ")
+					continue
+				secondString.append(search[i])
+		f = ''.join(firstString)
+		print(f)
+		if len(secondString) > 0:
+			s = ''.join(secondString)
+			print(s)
+			if f == "author":
+				return {"books": [book.json() for book in BookModel.query.filter_by(author=s).all()]}
+			elif f == "title":
+				return {"books": [book.json() for book in BookModel.query.filter_by(title=s).all()]}
+			else:
+				return{"message": "error, can only search by title or author: /booklist/author:Bill_Shakespeare"}
+		elif search != "all":
+			return {"message": "Please enter booklist/all or booklist/author:xxx or booklist/title:xxx"}
 		return {"books": [book.json() for book in BookModel.query.all()]}
