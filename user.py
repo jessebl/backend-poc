@@ -32,17 +32,19 @@ class UserModel(db.Model):
 	def get_listings(self):
 		listing_ids = []
 		for listing in self.listings:
-			listing_ids.append(listing.json())
+			listing_ids.append(listing.listing_json_w_book())
 		return listing_ids
 
 	# Returns a json object representing the book
-	def json(self):
+	def user_json_wo_listings(self): # listings already displayed
+		return {'google_tok': self.google_tok, 'name': self.name, 'email': self.email}
+
+	def user_json_w_listings(self): # listings not already displayed
 		return {'google_tok': self.google_tok, 'name': self.name, 'email': self.email, 'listings': self.get_listings()}
 
 	@classmethod
 	def find_by_email(cls, email): # emails are unique between students, used to see if user exists or not
 		return UserModel.query.filter_by(email=email).first()
-
 	@classmethod
 	def find_by_google_tok(cls, google_tok):
 		return UserModel.query.filter_by(google_tok=google_tok).first()
@@ -50,12 +52,12 @@ class UserModel(db.Model):
 	def save_to_db(self):
 		db.session.add(self)
 		db.session.commit()
-		return self.json()
+		return self.user_json_wo_listings()
 
 	def delete_from_db(self):
 		db.session.delete(self)
 		db.session.commit()
-		return self.json()
+		return self.user_json_wo_listings()
 
 	# How the book class will be printed
 	def __repr__(self):
@@ -82,9 +84,9 @@ class User(Resource):
 	)
 
 	def get(self, google_tok): # Get request, looking for user from user_id
-		user = UserModel.find_by_user_id(user_id)
+		user = UserModel.find_by_google_tok(google_tok)
 		if user:
-			return user.json()
+			return user.user_json_w_listings()
 		return {"message": "user not found"}, 404
 
 	def post(self, google_tok): # create user
@@ -120,4 +122,4 @@ class User(Resource):
 
 class UserList(Resource):
 	def get(self):
-		return {"users": [user.json() for user in UserModel.query.all()]}
+		return {"users": [user.user_json_w_listings() for user in UserModel.query.all()]}

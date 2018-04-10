@@ -1,9 +1,11 @@
 from sqlalchemy import Table, Column, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 from flask_restful import Resource, reqparse
+import math # math.ciel() used for paging
 
 from db import db
 
+page_size = 20
 
 class BookModel(db.Model):
 	"""The Book object stores information about the book, as well as
@@ -34,12 +36,16 @@ class BookModel(db.Model):
 	def get_listings(self):
 		listing_ids = []
 		for listing in self.listings:
-			listing_ids.append(listing.json())
+			listing_ids.append(listing.listing_json_w_user())
 		return listing_ids
 
 	# Returns a json object representing the book
-	def json(self):
+	def book_json_w_listings(self):
 		return {'isbn': self.isbn, 'title': self.title, 'author': self.author, 'listings': self.get_listings()}
+		#if you ALSO want listings tied to the book
+		#return {'isbn': self.isbn, 'title': self.title, 'author': self.author, 'listings': self.get_listings()}
+	def book_json_wo_listings(self):
+		return {'isbn': self.isbn, 'title': self.title, 'author': self.author}
 
 	@classmethod
 	def find_by_isbn(cls, isbn): # Abstracted and redefined from get
@@ -48,12 +54,12 @@ class BookModel(db.Model):
 	def save_to_db(self):
 		db.session.add(self)
 		db.session.commit()
-		return self.json()
+		return self.book_json_wo_listings()
 
 	def delete_from_db(self):
 		db.session.delete(self)
 		db.session.commit()
-		return self.json()
+		return self.book_json_wo_listings()
 
 	# How the book class will be printed
 	def __repr__(self):
@@ -82,7 +88,7 @@ class Book(Resource):
 	def get(self, isbn): # Get request, looking for isbn
 		book = BookModel.find_by_isbn(isbn)
 		if book:
-			return book.json()
+			return book.book_json_w_listings()
 		return {"message": "Book not found"}, 404
 
 	def post(self, isbn):
@@ -117,7 +123,9 @@ class BookList(Resource):
 	def get(self, search):
 		firstString = []
 		secondString = []
+		thirdString = []
 		first = True
+		second = True
 		for i in range(0, len(search)):
 			if search[i] == ":":
 				first = False
@@ -125,17 +133,32 @@ class BookList(Resource):
 			if first:
 				firstString.append(search[i])
 			elif not first:
-				if search[i] == "_":
-					secondString.append(" ")
-					continue
-				secondString.append(search[i])
-		f = ''.join(firstString)
+				if search[i] == ":":
+					second = False
+				if second:
+					if search[i] == "_":
+						secondString.append(" ")
+						continue
+					secondString.append(search[i])
+				elif not second:
+					thirdString.append(search[i])
+		f = ''.join(firstString) # 'all', 'author', or 'title'
+		t = ''.join(thirdString)
+		t = int(t) # page number
 		print(f)
 		if len(secondString) > 0:
-			s = ''.join(secondString)
+			s = ''.join(secondString) # name of title or name of author
 			print(s)
 			if f == "author":
+				data = BookModel.query.filter_by(author=s).all()
+				newdata =[]
+				of = math.ciel(len(data)/page_size) # total number of pages
+				page = t # page number requested by frontend
+				for book in range(page*page_size, (page+1)*page_size):
+					newdata.append(book.json_page(page, of))
+
 				return {"books": [book.json() for book in BookModel.query.filter_by(author=s).all()]}
+				#used to be return {"books": [book.json() for book in BookModel.query.filter_by(author=s).all()]}
 			elif f == "title":
 				return {"books": [book.json() for book in BookModel.query.filter_by(title=s).all()]}
 			else:

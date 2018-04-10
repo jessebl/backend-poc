@@ -1,6 +1,7 @@
 from sqlalchemy import Table, Column, Integer, ForeignKey, desc, asc
 from sqlalchemy.orm import relationship
 from flask_restful import Resource, reqparse
+#from user import find_by_google_tok
 
 from db import db
 
@@ -25,8 +26,16 @@ class ListingModel(db.Model):
         self.google_tok = google_tok
         self.status = status
 
-    def json(self):
-        return {"listing_id": self.listing_id, 'price': self.price, 'condition': self.condition, 'isbn': self.isbn, 'google_tok': self.google_tok, 'status': self.status}
+    def listing_json_w_user(self):
+        return {"listing_id": self.listing_id, 'price': self.price, 'condition': self.condition, 'isbn': self.isbn, 'status': self.status, 'user': self.user.user_json_wo_listings()}
+
+    def listing_json_w_book(self):
+        return {"listing_id": self.listing_id, 'price': self.price, 'condition': self.condition, 'isbn': self.isbn, 'status': self.status, 'book': self.book.book_json_wo_listings()}
+
+    #def get_user(self):
+    #    user = []
+    #    user.append(user.find_by_google_tok(self.google_tok))
+    #    return user
 
     @classmethod
     def find_by_isbn(cls, isbn): # abstracted and redifined from get
@@ -91,7 +100,7 @@ class Listing(Resource):
     def get(self, isbn): # get request, looking for item called "name",
         l = ListingModel.find_by_isbn(isbn)
         if l:
-            return l.json()
+            return l.listing_json_w_user()
         return {"message": "Item not found"}, 404
 
     def post(self, isbn):
@@ -106,7 +115,7 @@ class Listing(Resource):
         except:
             return{"message": "An error occurred while inserting"}, 500 # internal server error
 
-        return item.json(), 201 #post was successful
+        return item.listing_json_w_book(), 201 #post was successful
 
     def delete(self, isbn):
         data = Listing.parser.parse_args()
@@ -131,7 +140,7 @@ class Listing(Resource):
 
         item.save_to_db()
 
-        return item.json()
+        return item.listing_json_w_book()
 
 
 class allListings(Resource):
@@ -156,11 +165,11 @@ class allListings(Resource):
             s = ''.join(secondString)
             print(s)
             if s == "price": #For next time: figure out ordering by price and condition!!!
-                return {"listings": [listing.json() for listing in ListingModel.query.filter_by(isbn=isbn).order_by(db.desc(listings.price)).all()]}
+                return {"listings": [listing.listing_json_w_user() for listing in ListingModel.query.filter_by(isbn=isbn).order_by(ListingModel.price).all()]}
             elif s == "condition":
-                return {"listings": [listing.json() for listing in ListingModel.query.filter_by(isbn=isbn).order_by(db.asc(listings.condition)).all()]}
+                return {"listings": [listing.listing_json_w_user() for listing in ListingModel.query.filter_by(isbn=isbn).order_by(ListingModel.condition.desc()).all()]}
             else:
                 return{"message": "error, can only search by title or author: /booklist/author:Bill_Shakespeare"}
         elif search != "all":
             return {"message": "Please enter booklist/all or booklist/author:xxx or booklist/title:xxx"}
-        return {"books": [book.json() for book in BookModel.query.all()]}
+        return {"books": [listing.listing_json_w_user() for listing in ListingModel.query.all()]}
